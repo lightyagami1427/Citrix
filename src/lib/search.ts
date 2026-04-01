@@ -13,14 +13,17 @@ export async function searchWeb(query: string): Promise<SearchResult[]> {
 
   try {
     const encodedQuery = encodeURIComponent(searchQuery);
-    const url = `https://html.duckduckgo.com/html/?q=${encodedQuery}`;
+    // Use the "Lite" version which is more reliable for scraping
+    const url = `https://lite.duckduckgo.com/lite/?q=${encodedQuery}`;
 
     const response = await fetch(url, {
       headers: {
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
+        'Referer': 'https://duckduckgo.com/',
+        'DNT': '1',
       },
       signal: AbortSignal.timeout(10000),
     });
@@ -38,20 +41,19 @@ export async function searchWeb(query: string): Promise<SearchResult[]> {
 }
 
 /**
- * Parse DuckDuckGo HTML results page to extract search results.
+ * Parse DuckDuckGo Lite HTML results page to extract search results.
  */
 function parseDuckDuckGoResults(html: string): SearchResult[] {
   const results: SearchResult[] = [];
 
-  // DuckDuckGo HTML results contain links in <a class="result__a"> tags
-  // and snippets in <a class="result__snippet"> tags
-  const resultBlockRegex =
-    /<div[^>]*class="[^"]*result[^"]*"[^>]*>[\s\S]*?<\/div>\s*<\/div>/gi;
-  const linkRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-  const snippetRegex =
-    /<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi;
+  // 1. Extract result links and titles
+  // Pattern: <a ... class='result-link' ... href='...uddg=URL...'>TITLE</a>
+  const linkRegex = /class=['"]result-link['"][^>]*href=['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
+  
+  // 2. Extract snippets
+  // Pattern: <td class='result-snippet'>SNIPPET</td>
+  const snippetRegex = /class=['"]result-snippet['"][^>]*>([\s\S]*?)<\/td>/gi;
 
-  // Simpler approach: extract all result links and snippets
   const linkMatches = [...html.matchAll(linkRegex)];
   const snippetMatches = [...html.matchAll(snippetRegex)];
 
@@ -60,15 +62,19 @@ function parseDuckDuckGoResults(html: string): SearchResult[] {
     const title = stripHtml(linkMatches[i][2]);
     const snippet = i < snippetMatches.length ? stripHtml(snippetMatches[i][1]) : '';
 
-    // DuckDuckGo sometimes wraps URLs in a redirect
+    // DuckDuckGo Lite uses proxy links like //duckduckgo.com/l/?uddg=URL
     if (url.includes('uddg=')) {
-      const match = url.match(/uddg=([^&]*)/);
+      const match = url.match(/uddg=([^&]+)/);
       if (match) {
         url = decodeURIComponent(match[1]);
       }
     }
+    
+    // Ensure absolute URL
+    if (url.startsWith('//')) url = 'https:' + url;
+    if (url.startsWith('/')) url = 'https://duckduckgo.com' + url;
 
-    if (url && title) {
+    if (url && title && url.includes('http')) {
       results.push({ url, title, snippet });
     }
   }
