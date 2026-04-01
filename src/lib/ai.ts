@@ -1,10 +1,17 @@
 import OpenAI from 'openai';
 import { ScrapedContent } from '@/types';
 
-const openai = new OpenAI({
-  baseURL: 'https://openrouter.ai/api/v1',
-  apiKey: process.env.OPENROUTER_API_KEY || '',
-});
+let openaiClient: OpenAI | null = null;
+
+function getOpenAIClient() {
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
+      apiKey: process.env.OPENROUTER_API_KEY || '',
+    });
+  }
+  return openaiClient;
+}
 
 const SYSTEM_PROMPT = `You are a senior Citrix support engineer with 15+ years of experience troubleshooting Citrix environments including Citrix Virtual Apps and Desktops (CVAD), NetScaler/ADC, StoreFront, Workspace, Provisioning Services (PVS), HDX, and related technologies.
 
@@ -62,7 +69,7 @@ ${sourceContext}
 Based on the above sources, provide your analysis following the required format.`;
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model,
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
