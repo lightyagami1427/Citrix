@@ -8,6 +8,14 @@ import { ChatResponse } from '@/types';
 
 export const maxDuration = 60;
 
+export async function GET() {
+  return NextResponse.json({ 
+    status: 'online', 
+    method: 'POST only',
+    info: 'Please use POST to send queries.'
+  });
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
