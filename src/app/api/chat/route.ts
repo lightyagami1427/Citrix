@@ -77,41 +77,34 @@ export async function POST(request: NextRequest) {
       } as ChatResponse);
     }
 
-    // 4. Scrape content from trusted URLs
+    // 4. Scrape content from trusted URLs with Hybrid Context Fallback
     console.log(
-      `[Scrape] Scraping ${trustedResults.length} trusted URLs...`
+      `[Scrape] Attempting to scrape ${trustedResults.length} trusted URLs...`
     );
     const urls = trustedResults.map((r) => r.url);
-    const scrapedContent = await scrapeUrls(urls);
+    const scrapedResults = await scrapeUrls(urls);
+    
+    // Build hybrid context: Use scraped content if available, otherwise use search snippet
+    const hybridContent = trustedResults.map((result) => {
+      const scraped = scrapedResults.find((s) => s.url === result.url);
+      if (scraped && scraped.success) {
+        return scraped;
+      }
+      
+      // Fallback to snippet if scraping failed
+      return {
+        url: result.url,
+        title: result.title,
+        content: result.snippet || 'No content could be extracted from this source.',
+        success: true, // Mark as success so it's included in AI context
+      };
+    });
 
-    if (scrapedContent.length === 0) {
-      // Fallback: use search snippets as context
-      const fallbackContent = trustedResults.map((r) => ({
-        url: r.url,
-        title: r.title,
-        content: r.snippet,
-        success: true,
-      }));
-
-      console.log('[Scrape] Using search snippets as fallback...');
-      const aiResponse = await generateResponse(trimmedQuery, fallbackContent);
-      const sources = trustedResults.map((r) => r.url);
-
-      setCachedResponse(trimmedQuery, aiResponse, sources);
-
-      return NextResponse.json({
-        response: aiResponse,
-        sources,
-        cached: false,
-      } as ChatResponse);
-    }
-
+    console.log(`[AI] Generating response from ${hybridContent.length} sources (Hybrid Context)...`);
+    
     // 5. Generate AI response
-    console.log(
-      `[AI] Generating response from ${scrapedContent.length} sources...`
-    );
-    const aiResponse = await generateResponse(trimmedQuery, scrapedContent);
-    const sources = scrapedContent.map((s) => s.url);
+    const aiResponse = await generateResponse(trimmedQuery, hybridContent);
+    const sources = trustedResults.map((r) => r.url);
 
     // 6. Cache the result
     setCachedResponse(trimmedQuery, aiResponse, sources);
