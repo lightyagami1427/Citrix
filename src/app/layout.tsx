@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'Citrix Troubleshooting Copilot | AI-Powered Support Assistant',
@@ -24,8 +25,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </body>
     </html>
   );
 }

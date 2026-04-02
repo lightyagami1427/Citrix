@@ -6,6 +6,8 @@ import { generateResponse } from '@/lib/ai';
 import { getCachedResponse, setCachedResponse } from '@/lib/cache';
 import { ChatResponse } from '@/types';
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -48,7 +50,7 @@ export async function POST(request: NextRequest) {
           error:
             'No search results found. Please try a different query or check your network connection.',
         },
-        { status: 404 }
+        { status: 502 }
       );
     }
 
