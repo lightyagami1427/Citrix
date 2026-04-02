@@ -53,10 +53,12 @@ export async function POST(request: NextRequest) {
     const searchResults = await searchWeb(trimmedQuery);
 
     if (searchResults.length === 0) {
+      const isMissingKey = !process.env.SERPER_API_KEY;
       return NextResponse.json(
         {
-          error:
-            'No search results found. Please try a different query or check your network connection.',
+          error: isMissingKey && process.env.VERCEL
+            ? 'Search failed: Please configure SERPER_API_KEY in your Vercel project settings.' 
+            : 'No search results found. Please try a different query or check your network connection.',
         },
         { status: 502 }
       );
